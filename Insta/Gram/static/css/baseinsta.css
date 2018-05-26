@@ -1,0 +1,21 @@
+h1
+{
+  color: white;
+}
+/* nav{
+font-family: 'Pacifico', cursive;
+background-color: black;
+} */
+body{
+font-family: 'Gloria Hallelujah', cursive;
+  background-color: white;
+}
+.login{
+  background-color: white;
+}
+#insta{
+  font-family: 'Pacifico', cursive;
+}
+.navbar navbar-inverse{
+  background-color: white;
+}

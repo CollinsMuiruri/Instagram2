@@ -1,0 +1,59 @@
+{%extends "registration/base.html"%}
+{% load bootstrap4 %}
+{% block content %}
+
+<style>
+body {
+  background-image: url(../../static/images/doll.png);
+  background-size: cover;
+}
+.login {
+  color: white;
+}
+
+</style>
+<div class="login">
+<div class="container">
+  <div class="row">
+    <!-- Empty div -->
+    <div class="col-md-4"></div>
+    <div class="col-md-4">
+      <h1 class="text-center" style="font-family: 'Pacifico', cursive;">Instagram</h1>
+      {% if form.errors %}
+        <p> Password or Username is incorrect </p>
+      {% endif %}
+      <div class="panel panel-default">
+
+        <div class="panel-heading">
+          <h3 class="text-center">Sign In</h3>
+        </div>
+        <div class="panel-body">
+
+          <form  action="/accounts/login/" method="post">
+            {% csrf_token %}
+            {% bootstrap_form form%}
+
+            <div class="form-group">
+              <input type="submit" class="btn btn-primary btn-sm" value="Login">
+            </div>
+
+            <input type="hidden" name="next" value="{{next}}">
+
+          </form>
+
+          <div action="/accounts/register/">
+            <p>Don't have an account? Then</p>
+            <p><a href="/accounts/register/">Sign up here</a></p>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+    <!-- empty div -->
+    <div class="col-md-4"></div>
+  </div>
+</div>
+</div>
+{% endblock %}

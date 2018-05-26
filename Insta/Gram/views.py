@@ -1,141 +1,126 @@
-from django.shortcuts import render, redirect
-from django.http import Http404, HttpResponseRedirect
-import datetime as dt
-from django.db import transaction
-from .models import Image, Profile
-from .forms import InfoImageForm, NewsLetterForm
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse, Http404
+from .models import Image, Profile, Comment
+from .forms import EditProfileForm, UploadForm, CommentForm
+from django.contrib.auth.models import User
 
 # Create your views here.
 
 
-@login_required(login_url='/accounts/login')
-def latest_images(request):
-    date = dt.date.today()
-    images = Image.todays_images()
+@login_required(login_url='/accounts/login/')
+def home(request):
+    title = 'InstaKid'
+    current_user = request.user
+    profile = Profile.get_profile()
+    image = Image.get_images()
+    comments = Comment.get_comment()
+    return render(request, 'index.html', {"title": title, "profile": profile, "comments": comments, "current_user": current_user, "images": image})
 
+
+@login_required(login_url='/accounts/login/')
+def profile(request):
+    title = 'InstaKid'
+    current_user = request.user
+    profile = Profile.get_profile()
+    image = Image.get_images()
+    comments = Comment.get_comment()
+    return render(request, 'profile/profile.html', {"title": title, "comments": comments, "image": image, "user": current_user, "profile": profile})
+
+
+@login_required(login_url='/accounts/login/')
+def settings(request):
+    title = 'InstaKid'
+    settings = Profile.get_profile()
+    return render(request, 'profile/settings.html', {"settings": settings, "title": title,})
+
+
+@login_required(login_url='/accounts/login/')
+def edit(request):
+    title = 'Insta-Gram'
+    current_user = request.user
     if request.method == 'POST':
-        form = NewsLetterForm(request.POST)
+        form = EditProfileForm(request.POST, request.FILES)
         if form.is_valid():
-            name = form.cleaned_data['your_name']
-            email = form.cleaned_data['email']
-            recipient = NewsLetterRecipients(name=name, email=email)
-            recipient.save()
-            send_welcome_email(name, email)
-
-            HttpResponseRedirect('latest')
-
+            update = form.save(commit=False)
+            update.user = current_user
+            update.save()
+            return redirect('profile')
     else:
-        form = NewsLetterForm()
-    return render(request, 'allofinsta/insta-home.html', {"date": date, "images": images, "letterform": form})
+        form = EditProfileForm()
+    return render(request, 'profile/edit.html', {"title": title, "form": form})
 
 
-@login_required(login_url='/accounts/login')
+@login_required(login_url="/accounts/login/")
+def upload(request):
+    title = 'Insta-Gram'
+    current_user = request.user
+    profiles = Profile.get_profile()
+    for profile in profiles:
+        if profile.user.id == current_user.id:
+            if request.method == 'POST':
+                form = UploadForm(request.POST, request.FILES)
+                if form.is_valid():
+                    upload = form.save(commit=False)
+                    upload.user = current_user
+                    upload.profile = profile
+                    upload.save()
+                    return redirect('home')
+            else:
+                form = UploadForm()
+            return render(request, 'upload/new.html', {"title": title, "user": current_user, "form": form})
+
+
+@login_required(login_url="/accounts/login/")
 def search_results(request):
-    if 'image' in request.GET and request.GET["image"]:
-        search_term = request.GET.get("image")
-        searched_images = Image.search_by_image_name(search_term)
-        message = f"{search_term}"
+    current_user = request.user
+    profile = Profile.get_profile()
+    if 'username' in request.GET and request.GET["username"]:
+        search_term = request.GET.get("username")
+        searched_name = Profile.find_profile(search_term)
+        message = search_term
 
-        return render(request, 'showme/search.html', {"message": message, "images": searched_images})
-
+        return render(request, 'search.html', {"message": message, "profiles": profile, "user": current_user, "username": searched_name})
     else:
-        message = "because you haven't searched for any term "
-        return render(request, 'allofinsta/search.html', {"message": message})
+        message = "You haven't searched for any term"
+        return render(request, 'search.html', {"message": message})
 
 
 @login_required(login_url='/accounts/login/')
-def image_detail(request, id):
-    test = 'test'
-    image = Image.objects.get(id=id)
-    return render(request, 'allofinsta/details.html', {'image': image, 'test': test})
-
-
-@login_required(login_url='/accounts/login/')
-def image(request, image_id):
-    try:
-        image = Image.objects.get(id=image_id)
-    except DoesNotExist:
-        raise Http404()
-    return render(request, "allofinsta/image.html", {"image": image})
-
-
-@login_required(login_url='/accounts/login')
-def new_image(request):
+def new_comment(request, pk):
+    image = get_object_or_404(Image, pk=pk)
     current_user = request.user
     if request.method == 'POST':
-        form = InfoImageForm(request.POST, request.FILES)
+        form = CommentForm(request.POST)
         if form.is_valid():
-            image = form.save(commit=False)
-            image.editor = current_user
-            image.save()
+            comment = form.save(commit=False)
+            comment.image = image
+            comment.user = current_user
+            comment.save()
+            return redirect('home')
     else:
-        form = InfoImageForm()
-    return render(request, "new_image.html", {"form": form})
+        form = CommentForm()
+    return render(request, 'comment.html', {"user": current_user, "comment_form": form})
 
 
-@login_required(login_url='/accounts/login/')
-def profile(request, profile_id):
-
+@login_required(login_url="/accounts/login/")
+def view_your_profile(request, pk):
+    title = "Insta-gram"
     current_user = request.user
-    current_user.id = request.user.id
-
-    profiles = Image.objects.filter(editor__username__iexact=profile_id)
-    # print(profiles)
-    profile = Profile.objects.get(user__username__exact=profile_id)
-    content = {
-        "profiles": profiles,
-        "profile": profile,
-        "user": current_user,
-        "profile_id": profile_id
-    }
-    return render(request, "profiles/profile.html", content)
+    image = Image.get_images()
+    profile = Profile.get_profile()
+    comment = Comment.get_comment()
+    user = get_object_or_404(User, pk=pk)
+    return render(request, 'profile/view.html', {"user": current_user, "images": image, "my_user": user, "comments": comment, "profile": profile, "title": title})
 
 
-def after_detail(request, id):
-    # return HttpResponse(slug)
-    image = Image.objects.filter(id=id).all()
-    return render(request, 'allofinsta/after.html', {'image': image})
-
-
-@login_required(login_url='/accounts/register')
-def post(request):
-    current_user = request.user
-    profile = request.user.profile
-    if request.method == 'POST':
-
-        form = ImagePost(request.POST, request.FILES)
-
-        if form.is_valid:
-            image = form.save(commit=False)
-            image.user = current_user
-            image.profile = profile
-            image.save()
-            return redirect('profiles', current_user.username)
-    else:
-        form = ImagePost()
-
-    title = "New Post"
-    content = {
-        "form": form,
-        "title": title
-    }
-    return render(request, 'post.html', content)
-
-
-@login_required(login_url='/accounts/login/')
-def edit_profile(request, profile_id):
-
-    current_user = request.user
-    current_user.id = request.user.id
-
-    profiles = Image.objects.filter(editor__username__iexact=profile_id)
-    # print(profiles)
-    profile = Profile.objects.get(user__username__exact=profile_id)
-    content = {
-        "profiles": profiles,
-        "profile": profile,
-        "user": current_user,
-        "profile_id": profile_id
-    }
-    return render(request, "profiles/edit_profile.html", content)
+@login_required(login_url="/accounts/login/")
+def like(request, operation, pk):
+    image = get_object_or_404(Image, pk=pk)
+    if operation == 'like':
+        image.likes += 1
+        image.save()
+    elif operation == 'unlike':
+        image.likes -= 1
+        image.save()
+    return redirect('home')
